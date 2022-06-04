@@ -1,0 +1,73 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Dto\PermissionsDictionary;
+use App\Service\PermissionsDictionaryGetter;
+
+$projectDir = dirname(__DIR__);
+
+include $projectDir.'/vendor/autoload.php';
+
+if (!isset($argv[1])) {
+    echo "Specify android app apk filepath";
+    exit(1);
+}
+
+$apkFilepath = $argv[1];
+
+$permissionsDictionary = PermissionsDictionaryGetter::get($projectDir.'/var/AndroidManifest.base.xml');
+
+$apk = new ApkParser\Parser($apkFilepath);
+$packageName = $apk->getManifest()->getPackageName();
+$appPermissions = $apk->getManifest()->getPermissionsRaw();
+sort($appPermissions);
+
+echo "Privileged, signature permissions file put into /system/etc/permissions/[package_name].xml:\n\n";
+echo getPermissionsFileOutput($permissionsDictionary, $appPermissions, $packageName);
+echo "\n";
+
+echo "Dangerous permissions can be enabled by default by puting into /system/etc/default-permissions/[package_name].xml:\n\n";
+echo getDefaultPermissionsFileOutput($permissionsDictionary, $appPermissions, $packageName);
+echo "\n";
+
+exit(0);
+
+function getPermissionsFileOutput(PermissionsDictionary $generalPermissions, array $appPermissions, string $packageName): string
+{
+    $output = '<?xml version="1.0" encoding="utf-8"?>'.PHP_EOL;
+    $output .= '<!-- This XML file declares which signature|privileged permissions to grant to privileged apps that come with the platform -->'.PHP_EOL;
+    $output .= '<permissions>'.PHP_EOL;
+    $output .= '    <privapp-permissions package="'.$packageName.'">'.PHP_EOL;
+
+    foreach ($appPermissions as $appPermission) {
+        if (in_array($appPermission, $generalPermissions->getPrivileged(), true)
+            || in_array($appPermission, $generalPermissions->getSignature(), true)) {
+            $output .= '        <permission name="'.$appPermission.'"/>'.PHP_EOL;
+        }
+    }
+
+    $output .= '    </privapp-permissions>'.PHP_EOL;
+    $output .= '</permissions>'.PHP_EOL;
+
+    return $output;
+}
+
+function getDefaultPermissionsFileOutput(PermissionsDictionary $generalPermissions, array $appPermissions, string $packageName): string
+{
+    $output = '<?xml version="1.0" encoding="utf-8"?>'.PHP_EOL;
+    $output .= '<exceptions>'.PHP_EOL;
+    $output .= '    <exception package="'.$packageName.'">'.PHP_EOL;
+
+    foreach ($appPermissions as $appPermission) {
+        if (in_array($appPermission, $generalPermissions->getDangerous(), true)) {
+            $output .= '        <permission name="'.$appPermission.'" fixed="false"/>'.PHP_EOL;
+        }
+    }
+
+    $output .= '    </privapp-permissions>'.PHP_EOL;
+    $output .= '</exceptions>'.PHP_EOL;
+
+    return $output;
+}
