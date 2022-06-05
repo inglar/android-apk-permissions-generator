@@ -24,11 +24,11 @@ $packageName = $apk->getManifest()->getPackageName();
 $appPermissions = $apk->getManifest()->getPermissionsRaw();
 sort($appPermissions);
 
-echo "Privileged, signature permissions file put into /system/etc/permissions/[package_name].xml:\n\n";
+echo "Privileged, signature permissions file put into /system/etc/permissions/privapp-permissions-{$packageName}.xml:\n\n";
 echo getPermissionsFileOutput($permissionsDictionary, $appPermissions, $packageName);
 echo "\n";
 
-echo "Dangerous permissions can be enabled by default by puting into /system/etc/default-permissions/[package_name].xml:\n\n";
+echo "Dangerous permissions can be enabled by default by puting into /system/etc/default-permissions/{$packageName}-permissions.xml:\n\n";
 echo getDefaultPermissionsFileOutput($permissionsDictionary, $appPermissions, $packageName);
 echo "\n";
 
